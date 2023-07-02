@@ -1,35 +1,33 @@
 import requests
-import youtube_dl
+import json
 
-def download_song(song_url):
-  """Downloads a song from YouTube and saves it to the current directory."""
-  response = requests.get(song_url)
-  song_info = youtube_dl.extract_info(response.content, download=False)
-  song_filename = f"{song_info['title']}.mp3"
+from telegram.bot import Bot
+from telegram.ext import MessageHandler, Filters
 
-  # Check if the song already exists
-  if os.path.exists(song_filename):
-    print(f"The song '{song_filename}' already exists.")
-    return
+# Create a bot using your Telegram bot token
+bot = Bot(token='5208962076:AAFRivp9NqIABXvc0m8FI7PFxtaViYQeyeM')
 
-  with open(song_filename, "wb") as f:
-    f.write(response.content)
+# Create a message handler for song requests
+def song_request(update, context):
+    # Get the song name from the user
+    song_name = update.message.text
 
-  print(f"Successfully downloaded the song '{song_filename}'.")
+    # Use the requests library to download the song from YouTube
+    response = requests.get(f'https://www.youtube.com/results?search_query={song_name}')
+    song_url = response.json()['items'][0]['url']
 
-def handle_message(update, context):
-  """Handles a message from a user."""
-  message = update.message.text
+    # Save the song to a file
+    song_file = requests.get(song_url)
+    with open(f'{song_name}.mp3', 'wb') as f:
+        f.write(song_file.content)
 
-  if message.startswith("/download"):
-    song_url = message.split(" ")[1]
-    download_song(song_url)
+    # Send the song file to the user
+    bot.send_document(update.message.chat_id, f'{song_name}.mp3')
 
-def main():
-  """Starts the bot."""
-  bot = TelegramBot(token="5208962076:AAFRivp9NqIABXvc0m8FI7PFxtaViYQeyeM")
-  bot.register_handler(handle_message)
-  bot.run()
+# Register the message handler
+updater = Updater(bot=bot, use_context=True)
+updater.dispatcher.add_handler(MessageHandler(Filters.text, song_request))
 
-if __name__ == "__main__":
-  main()
+# Start the bot
+updater.start_polling()
+updater.idle()
